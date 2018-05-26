@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"time"
 )
 
@@ -137,18 +138,28 @@ func (s *Server) HandleAuthorizeRequest(w *Response, r *http.Request) *Authorize
 		return nil
 	}
 
+	redirecting, err := strconv.ParseBool(r.Form.Get("redirect"))
+	if err != nil {
+		w.SetErrorState(E_INVALID_REQUEST, "unable to parse redirect", "")
+		return nil
+	}
+
 	// check redirect uri, if there are multiple client redirect uri's
 	// don't set the uri
 	if ret.RedirectUri == "" && FirstUri(ret.Client.GetRedirectURI(), s.Config.RedirectUriSeparator) == ret.Client.GetRedirectURI() {
 		ret.RedirectUri = FirstUri(ret.Client.GetRedirectURI(), s.Config.RedirectUriSeparator)
 	}
 
-	if err = ValidateUriList(ret.Client.GetRedirectURI(), ret.RedirectUri, s.Config.RedirectUriSeparator); err != nil {
+	if err = ValidateUriList(ret.Client.GetRedirectURI(), ret.RedirectUri, s.Config.RedirectUriSeparator); redirecting && err != nil {
 		w.SetErrorState(E_INVALID_REQUEST, "redirect URI invalid", ret.State)
 		return nil
 	}
 
-	w.SetRedirect(ret.RedirectUri)
+	if redirecting {
+		w.SetRedirect(ret.RedirectUri)
+	} else {
+		w.Type = DATA
+	}
 
 	requestType := AuthorizeRequestType(r.Form.Get("response_type"))
 	if s.Config.AllowedAuthorizeTypes.Exists(requestType) {
@@ -203,8 +214,9 @@ func (s *Server) FinishAuthorizeRequest(w *Response, r *http.Request, ar *Author
 		return
 	}
 
-	// force redirect response
-	w.SetRedirect(ar.RedirectUri)
+	if w.Type == REDIRECT {
+		w.URL = ar.RedirectUri
+	}
 
 	if ar.Authorized {
 		if ar.Type == TOKEN {

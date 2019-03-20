@@ -162,10 +162,29 @@ func (s *Server) HandleAccessRequest(w *Response, r *http.Request) *AccessReques
 }
 
 func (s *Server) handleAuthorizationCodeRequest(w *Response, r *http.Request) *AccessRequest {
-	// get client authentication
-	auth := GetClientAuth(w, r, s.Config.AllowClientSecretInParams)
-	if auth == nil {
+	auth, err := CheckBasicAuth(r)
+	if err != nil {
+		w.SetError(E_SERVER_ERROR, "")
+		w.InternalError = err
 		return nil
+	}
+
+	var clientID string
+	var client Client
+	if auth == nil {
+		clientID = r.Form.Get("client_id")
+		if clientID == "" {
+			w.SetError(E_UNAUTHORIZED_CLIENT, "")
+			return nil
+		}
+		client = getClientWithoutSecret(clientID, w.Storage, w)
+	} else {
+		// get client authentication
+		auth := GetClientAuth(w, r, s.Config.AllowClientSecretInParams)
+		if auth == nil {
+			return nil
+		}
+		client = getClient(auth, w.Storage, w)
 	}
 
 	// generate access token
@@ -186,12 +205,11 @@ func (s *Server) handleAuthorizationCodeRequest(w *Response, r *http.Request) *A
 	}
 
 	// must have a valid client
-	if ret.Client = getClient(auth, w.Storage, w); ret.Client == nil {
+	if ret.Client = client; ret.Client == nil {
 		return nil
 	}
 
 	// must be a valid authorization code
-	var err error
 	ret.AuthorizeData, err = w.Storage.LoadAuthorize(ret.Code)
 	if err != nil {
 		w.SetError(E_INVALID_GRANT, "")
@@ -636,6 +654,27 @@ func getClient(auth *BasicAuth, storage Storage, w *Response) Client {
 	}
 
 	if !CheckClientSecret(client, auth.Password) {
+		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		return nil
+	}
+
+	if client.GetRedirectURI() == "" {
+		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		return nil
+	}
+	return client
+}
+
+// getClientWithoutSecret looks up and authenticates the basic auth using the given
+// storage. Sets an error on the response if auth fails or a server error occurs.
+func getClientWithoutSecret(clientId string, storage Storage, w *Response) Client {
+	client, err := storage.GetClient(clientId)
+	if err != nil {
+		w.SetError(E_SERVER_ERROR, "")
+		w.InternalError = err
+		return nil
+	}
+	if client == nil {
 		w.SetError(E_UNAUTHORIZED_CLIENT, "")
 		return nil
 	}

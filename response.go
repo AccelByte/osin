@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // Data for response output
@@ -128,7 +129,13 @@ func (r *Response) GetRedirectUrl() (string, error) {
 
 	// add parameters
 	for n, v := range r.Output {
-		q.Set(n, fmt.Sprint(v))
+		if n == "client_id" {
+			for _, e := range strings.Split(fmt.Sprint(v), ",") {
+				q.Add(n, e)
+			}
+		} else {
+			q.Add(n, fmt.Sprint(v))
+		}
 	}
 
 	// https://tools.ietf.org/html/rfc6749#section-4.2.2

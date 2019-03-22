@@ -47,6 +47,52 @@ func TestAuthorizeCode(t *testing.T) {
 	}
 }
 
+func TestAuthorizeCodeMultipleClient(t *testing.T) {
+	sconfig := NewServerConfig()
+	sconfig.AllowedAuthorizeTypes = AllowedAuthorizeType{CODE}
+	storage := NewTestingStorage()
+	server := NewServer(sconfig, storage)
+	server.AuthorizeTokenGen = &TestingAuthorizeTokenGen{}
+	resp := server.NewResponse()
+
+	storage.SetClient("5678", &DefaultClient{
+		Id:          "5678",
+		Secret:      "aabbccdd",
+		RedirectUri: "http://localhost:14001/appauth",
+	})
+
+	req, err := http.NewRequest("GET", "http://localhost:14000/appauth", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Form = make(url.Values)
+	req.Form.Set("response_type", string(CODE))
+	req.Form.Add("client_id", "1234")
+	req.Form.Add("client_id", "5678")
+	req.Form.Set("state", "a")
+
+	if ar := server.HandleAuthorizeRequest(resp, req); ar != nil {
+		ar.Authorized = true
+		server.FinishAuthorizeRequest(resp, req, ar)
+	}
+
+	if resp.IsError && resp.InternalError != nil {
+		t.Fatalf("Error in response: %s", resp.InternalError)
+	}
+
+	if resp.IsError {
+		t.Fatalf("Should not be an error")
+	}
+
+	if resp.Type != REDIRECT {
+		t.Fatalf("Response should be a redirect")
+	}
+
+	if d := resp.Output["code"]; d != "1" {
+		t.Fatalf("Unexpected authorization code: %s", d)
+	}
+}
+
 func TestAuthorizeToken(t *testing.T) {
 	sconfig := NewServerConfig()
 	sconfig.AllowedAuthorizeTypes = AllowedAuthorizeType{TOKEN}

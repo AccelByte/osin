@@ -1,5 +1,10 @@
 package osin
 
+import (
+	"github.com/AccelByte/go-jose/jwt"
+	"strings"
+)
+
 // Client information
 type Client interface {
 	// Client id
@@ -52,9 +57,59 @@ func (d *DefaultClient) GetUserData() interface{} {
 	return d.UserData
 }
 
-// Implement the ClientSecretMatcher interface
+// ClientSecretMatches implement the ClientSecretMatcher interface
 func (d *DefaultClient) ClientSecretMatches(secret string) bool {
 	return d.Secret == secret
+}
+
+// ComboClient implements osin.Client interface
+// This type of client is intended to handle multiple audience
+// in the token
+type ComboClient struct {
+	Audience jwt.Audience
+	Clients  []Client
+}
+
+// GetID satisfies osin.Client interface.
+func (client *ComboClient) GetID() string {
+	return strings.Join(client.Audience, ",")
+}
+
+// GetSecret satisfies osin.Client interface
+func (client *ComboClient) GetSecret() string {
+	secrets := make([]string, 0, len(client.Clients))
+	for _, c := range client.Clients {
+		secrets = append(secrets, c.GetSecret())
+	}
+	return strings.Join(secrets, ",")
+}
+
+// GetRedirectURI satisfies osin.Client interface
+func (client *ComboClient) GetRedirectURI() string {
+	uris := make([]string, 0, len(client.Clients))
+	for _, c := range client.Clients {
+		uris = append(uris, c.GetRedirectURI())
+	}
+	return strings.Join(uris, ",")
+}
+
+// GetUserData satisfies osin.Client interface
+func (client *ComboClient) GetUserData() interface{} {
+	data := make([]interface{}, 0, len(client.Clients))
+	for _, c := range client.Clients {
+		data = append(data, c.GetUserData())
+	}
+	return data
+}
+
+// ClientSecretMatches satisfies the ClientSecretMatcher interface
+func (client *ComboClient) ClientSecretMatches(secret string) bool {
+	return client.GetSecret() == secret
+}
+
+// ClientIDMatches satisfies the ClientIDMatcher interface
+func (client *ComboClient) ClientIDMatches(id string) bool {
+	return client.Audience.Contains(id)
 }
 
 func (d *DefaultClient) CopyFrom(client Client) {

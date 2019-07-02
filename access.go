@@ -665,7 +665,7 @@ func getClient(auth *BasicAuth, storage Storage, w *Response) Client {
 	return client
 }
 
-// getClientWithoutSecret looks up and authenticates the basic auth using the given
+// getClientWithoutSecret looks up and authenticates the client using the given
 // storage. Sets an error on the response if auth fails or a server error occurs.
 func getClientWithoutSecret(clientId string, storage Storage, w *Response) Client {
 	client, err := storage.GetClient(clientId)

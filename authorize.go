@@ -86,7 +86,7 @@ func (d *AuthorizeData) IsExpired() bool {
 	return d.IsExpiredAt(time.Now())
 }
 
-// IsExpired is true if authorization expires at time 't'
+// IsExpiredAt is true if authorization expires at time 't'
 func (d *AuthorizeData) IsExpiredAt(t time.Time) bool {
 	return d.ExpireAt().Before(t)
 }
@@ -121,31 +121,44 @@ func (s *Server) HandleAuthorizeRequest(w *Response, r *http.Request) *Authorize
 		HttpRequest: r,
 	}
 
-	// must have a valid client
-	ret.Client, err = w.Storage.GetClient(r.Form.Get("client_id"))
-	if err != nil {
-		w.SetErrorState(E_SERVER_ERROR, "unable to get client", ret.State)
-		w.InternalError = err
-		return nil
+	clientIDs := r.Form["client_id"]
+	comboClient := &ComboClient{
+		Audience: clientIDs,
+		Clients:  make([]Client, 0, len(clientIDs)),
 	}
-	if ret.Client == nil {
-		w.SetErrorState(E_UNAUTHORIZED_CLIENT, "client not found", ret.State)
-		return nil
-	}
-	if ret.Client.GetRedirectURI() == "" {
-		w.SetErrorState(E_UNAUTHORIZED_CLIENT, "client redirect URI not found", ret.State)
-		return nil
-	}
+	for _, id := range clientIDs {
+		// must have a valid client
+		var cl Client
+		cl, err = w.Storage.GetClient(id)
+		if err != nil {
+			w.SetErrorState(E_SERVER_ERROR, "unable to get client", ret.State)
+			w.InternalError = err
+			return nil
+		}
+		if cl == nil {
+			w.SetErrorState(E_UNAUTHORIZED_CLIENT, "client not found", ret.State)
+			return nil
+		}
+		if cl.GetRedirectURI() == "" {
+			w.SetErrorState(E_UNAUTHORIZED_CLIENT, "client redirect URI not found", ret.State)
+			return nil
+		}
+		comboClient.Clients = append(comboClient.Clients, cl)
 
-	// check redirect uri, if there are multiple client redirect uri's
-	// don't set the uri
-	if ret.RedirectUri == "" && FirstUri(ret.Client.GetRedirectURI(), s.Config.RedirectUriSeparator) == ret.Client.GetRedirectURI() {
-		ret.RedirectUri = FirstUri(ret.Client.GetRedirectURI(), s.Config.RedirectUriSeparator)
+		// check redirect uri, if there are multiple client redirect uri's
+		// don't set the uri
+		if ret.RedirectUri == "" && FirstUri(cl.GetRedirectURI(), s.Config.RedirectUriSeparator) == cl.GetRedirectURI() {
+			ret.RedirectUri = FirstUri(cl.GetRedirectURI(), s.Config.RedirectUriSeparator)
+		}
 	}
-
-	if err = ValidateUriList(ret.Client.GetRedirectURI(), ret.RedirectUri, s.Config.RedirectUriSeparator); err != nil {
+	if err = ValidateUriList(comboClient.GetRedirectURI(), ret.RedirectUri, ","); err != nil {
 		w.SetErrorState(E_INVALID_REQUEST, "redirect URI invalid", ret.State)
 		return nil
+	}
+	if len(comboClient.Clients) == 1 {
+		ret.Client = comboClient.Clients[0]
+	} else {
+		ret.Client = comboClient
 	}
 
 	w.SetRedirect(ret.RedirectUri)

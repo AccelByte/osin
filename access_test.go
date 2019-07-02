@@ -272,6 +272,205 @@ func TestExtraScopes(t *testing.T) {
 
 }
 
+func TestPlatformToken(t *testing.T) {
+	sconfig := NewServerConfig()
+	sconfig.AllowedAccessTypes = AllowedAccessType{PLATFORM}
+	server := NewServer(sconfig, NewTestingStorage())
+	server.AccessTokenGen = &TestingAccessTokenGen{}
+	resp := server.NewResponse()
+
+	req, err := http.NewRequest("POST", "http://localhost:14000/appauth", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.SetBasicAuth("1234", "aabbccdd")
+
+	req.Form = make(url.Values)
+	req.Form.Set("grant_type", string(PLATFORM))
+	req.Form.Set("client_id", "1234")
+	req.PostForm = make(url.Values)
+
+	if ar := server.HandleAccessRequest(resp, req); ar != nil {
+		ar.Authorized=true
+		server.FinishAccessRequest(resp, req, ar)
+	}
+
+	if resp.InternalError != nil {
+		t.Fatalf("Error in response: %s", resp.InternalError)
+	}
+
+	if resp.IsError {
+		t.Fatalf("Should not be an error")
+	}
+
+	if resp.Type != DATA {
+		t.Fatalf("Response should be data")
+	}
+
+	if d := resp.Output["access_token"]; d != "1" {
+		t.Fatalf("Unexpected access token: %s", d)
+	}
+
+	if d := resp.Output["refresh_token"]; d != "r1" {
+		t.Fatalf("Unexpected refresh token: %s", d)
+	}
+}
+
+func TestPlatformTokenWithoutClientSecret(t *testing.T) {
+	sconfig := NewServerConfig()
+	sconfig.AllowedAccessTypes = AllowedAccessType{PLATFORM}
+	server := NewServer(sconfig, NewTestingStorage())
+	server.AccessTokenGen = &TestingAccessTokenGen{}
+	resp := server.NewResponse()
+
+	req, err := http.NewRequest("POST", "http://localhost:14000/appauth", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Form = make(url.Values)
+	req.Form.Set("grant_type", string(PLATFORM))
+	req.Form.Set("client_id", "1234")
+	req.PostForm = make(url.Values)
+
+	if ar := server.HandleAccessRequest(resp, req); ar != nil {
+		ar.Authorized=true
+		server.FinishAccessRequest(resp, req, ar)
+	}
+
+	if  resp.InternalError != nil {
+		t.Fatalf("Error in response: %s", resp.InternalError)
+	}
+
+	if resp.IsError {
+		t.Fatalf("Should not be an error")
+	}
+
+	if resp.Type != DATA {
+		t.Fatalf("Response should be data")
+	}
+
+	if d := resp.Output["access_token"]; d != "1" {
+		t.Fatalf("Unexpected access token: %s", d)
+	}
+
+	if d := resp.Output["refresh_token"]; d != "r1" {
+		t.Fatalf("Unexpected refresh token: %s", d)
+	}
+}
+
+func TestPlatformTokenWithoutClientID(t *testing.T) {
+	sconfig := NewServerConfig()
+	sconfig.AllowedAccessTypes = AllowedAccessType{PLATFORM}
+	server := NewServer(sconfig, NewTestingStorage())
+	server.AccessTokenGen = &TestingAccessTokenGen{}
+	resp := server.NewResponse()
+
+	req, err := http.NewRequest("POST", "http://localhost:14000/appauth", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Form = make(url.Values)
+	req.Form.Set("grant_type", string(PLATFORM))
+	req.PostForm = make(url.Values)
+
+	if ar := server.HandleAccessRequest(resp, req); ar != nil {
+		ar.Authorized=true
+		server.FinishAccessRequest(resp, req, ar)
+	}
+
+	if !resp.IsError {
+		t.Fatalf("Should be an error")
+	}
+
+	if resp.ErrorId !="unauthorized_client" {
+		t.Fatalf("Unexpected error id: %s", resp.ErrorId)
+	}
+
+	if resp.Type != DATA {
+		t.Fatalf("Response should be data")
+	}
+}
+
+func TestPlatformTokenWithBasicAuth(t *testing.T) {
+	sconfig := NewServerConfig()
+	sconfig.AllowedAccessTypes = AllowedAccessType{PLATFORM}
+	server := NewServer(sconfig, NewTestingStorage())
+	server.AccessTokenGen = &TestingAccessTokenGen{}
+	resp := server.NewResponse()
+
+	req, err := http.NewRequest("POST", "http://localhost:14000/appauth", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.SetBasicAuth("1234", "aabbccdd")
+
+	req.Form = make(url.Values)
+	req.Form.Set("grant_type", string(PLATFORM))
+	req.PostForm = make(url.Values)
+
+	if ar := server.HandleAccessRequest(resp, req); ar != nil {
+		ar.Authorized=true
+		server.FinishAccessRequest(resp, req, ar)
+	}
+
+	if resp.InternalError != nil {
+		t.Fatalf("Error in response: %s", resp.InternalError)
+	}
+
+	if resp.IsError {
+		t.Fatalf("Should not be an error")
+	}
+
+	if resp.Type != DATA {
+		t.Fatalf("Response should be data")
+	}
+
+	if d := resp.Output["access_token"]; d != "1" {
+		t.Fatalf("Unexpected access token: %s", d)
+	}
+
+	if d := resp.Output["refresh_token"]; d != "r1" {
+		t.Fatalf("Unexpected refresh token: %s", d)
+	}
+}
+
+func TestPlatformTokenWithInvalidClient(t *testing.T) {
+	sconfig := NewServerConfig()
+	sconfig.AllowedAccessTypes = AllowedAccessType{PLATFORM}
+	server := NewServer(sconfig, NewTestingStorage())
+	server.AccessTokenGen = &TestingAccessTokenGen{}
+	resp := server.NewResponse()
+
+	req, err := http.NewRequest("POST", "http://localhost:14000/appauth", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.SetBasicAuth("invalidClient", "aabbccdd")
+
+	req.Form = make(url.Values)
+	req.Form.Set("grant_type", string(PLATFORM))
+	req.PostForm = make(url.Values)
+
+	if ar := server.HandleAccessRequest(resp, req); ar != nil {
+		ar.Authorized=true
+		server.FinishAccessRequest(resp, req, ar)
+	}
+
+	if !resp.IsError {
+		t.Fatalf("Should be an error")
+	}
+
+	if resp.ErrorId!="server_error" {
+		t.Fatalf("Unexpected error id: %s", resp.ErrorId)
+	}
+
+	if resp.Type != DATA {
+		t.Fatalf("Response should be data")
+	}
+}
+
 // clientWithoutMatcher just implements the base Client interface
 type clientWithoutMatcher struct {
 	Id          string

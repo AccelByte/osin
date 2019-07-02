@@ -478,10 +478,29 @@ func (s *Server) handleDeviceRequest(w *Response, r *http.Request) *AccessReques
 }
 
 func (s *Server) handlePlatformRequest(w *Response, r *http.Request) *AccessRequest {
-	// get client authentication
-	auth := GetClientAuth(w, r, s.Config.AllowClientSecretInParams)
-	if auth == nil {
+	auth, err := CheckBasicAuth(r)
+	if err != nil {
+		w.SetError(E_INVALID_REQUEST, "")
+		w.InternalError = err
 		return nil
+	}
+
+	var clientID string
+	var client Client
+	if auth == nil {
+		clientID = r.Form.Get("client_id")
+		if clientID == "" {
+			w.SetError(E_UNAUTHORIZED_CLIENT, "")
+			return nil
+		}
+		client = getClientWithoutSecret(clientID, w.Storage, w)
+	} else {
+		// get client authentication
+		auth := GetClientAuth(w, r, s.Config.AllowClientSecretInParams)
+		if auth == nil {
+			return nil
+		}
+		client = getClient(auth, w.Storage, w)
 	}
 
 	// generate access token
@@ -495,7 +514,7 @@ func (s *Server) handlePlatformRequest(w *Response, r *http.Request) *AccessRequ
 	}
 
 	// must have a valid client
-	if ret.Client = getClient(auth, w.Storage, w); ret.Client == nil {
+	if ret.Client = client; ret.Client == nil {
 		return nil
 	}
 

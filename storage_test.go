@@ -40,21 +40,23 @@ func NewTestingStorage() *TestingStorage {
 	}
 
 	r.access["9999"] = &AccessData{
-		Client:        r.clients["1234"],
-		AuthorizeData: r.authorize["9999"],
-		AccessToken:   "9999",
-		ExpiresIn:     3600,
-		CreatedAt:     time.Now(),
+		Client:           r.clients["1234"],
+		AuthorizeData:    r.authorize["9999"],
+		AccessToken:      "9999",
+		ExpiresIn:        3600,
+		CreatedAt:        time.Now(),
+		ExtendExpiryDate: false,
 	}
 
 	r.access["r9999"] = &AccessData{
-		Client:        r.clients["1234"],
-		AuthorizeData: r.authorize["9999"],
-		AccessData:    r.access["9999"],
-		AccessToken:   "9999",
-		RefreshToken:  "r9999",
-		ExpiresIn:     3600,
-		CreatedAt:     time.Now(),
+		Client:           r.clients["1234"],
+		AuthorizeData:    r.authorize["9999"],
+		AccessData:       r.access["9999"],
+		AccessToken:      "9999",
+		RefreshToken:     "r9999",
+		ExpiresIn:        3600,
+		CreatedAt:        time.Now(),
+		ExtendExpiryDate: false,
 	}
 
 	r.refresh["r9999"] = "9999"

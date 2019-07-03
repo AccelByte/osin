@@ -31,8 +31,6 @@ func TestAccessAuthorizationCode(t *testing.T) {
 		server.FinishAccessRequest(resp, req, ar)
 	}
 
-	//fmt.Printf("%+v", resp)
-
 	if resp.IsError && resp.InternalError != nil {
 		t.Fatalf("Error in response: %s", resp.InternalError)
 	}
@@ -291,7 +289,7 @@ func TestPlatformToken(t *testing.T) {
 	req.PostForm = make(url.Values)
 
 	if ar := server.HandleAccessRequest(resp, req); ar != nil {
-		ar.Authorized=true
+		ar.Authorized = true
 		server.FinishAccessRequest(resp, req, ar)
 	}
 
@@ -334,11 +332,11 @@ func TestPlatformTokenWithoutClientSecret(t *testing.T) {
 	req.PostForm = make(url.Values)
 
 	if ar := server.HandleAccessRequest(resp, req); ar != nil {
-		ar.Authorized=true
+		ar.Authorized = true
 		server.FinishAccessRequest(resp, req, ar)
 	}
 
-	if  resp.InternalError != nil {
+	if resp.InternalError != nil {
 		t.Fatalf("Error in response: %s", resp.InternalError)
 	}
 
@@ -376,7 +374,7 @@ func TestPlatformTokenWithoutClientID(t *testing.T) {
 	req.PostForm = make(url.Values)
 
 	if ar := server.HandleAccessRequest(resp, req); ar != nil {
-		ar.Authorized=true
+		ar.Authorized = true
 		server.FinishAccessRequest(resp, req, ar)
 	}
 
@@ -384,7 +382,7 @@ func TestPlatformTokenWithoutClientID(t *testing.T) {
 		t.Fatalf("Should be an error")
 	}
 
-	if resp.ErrorId !="unauthorized_client" {
+	if resp.ErrorId != "unauthorized_client" {
 		t.Fatalf("Unexpected error id: %s", resp.ErrorId)
 	}
 
@@ -411,7 +409,7 @@ func TestPlatformTokenWithBasicAuth(t *testing.T) {
 	req.PostForm = make(url.Values)
 
 	if ar := server.HandleAccessRequest(resp, req); ar != nil {
-		ar.Authorized=true
+		ar.Authorized = true
 		server.FinishAccessRequest(resp, req, ar)
 	}
 
@@ -454,7 +452,7 @@ func TestPlatformTokenWithInvalidClient(t *testing.T) {
 	req.PostForm = make(url.Values)
 
 	if ar := server.HandleAccessRequest(resp, req); ar != nil {
-		ar.Authorized=true
+		ar.Authorized = true
 		server.FinishAccessRequest(resp, req, ar)
 	}
 
@@ -462,7 +460,7 @@ func TestPlatformTokenWithInvalidClient(t *testing.T) {
 		t.Fatalf("Should be an error")
 	}
 
-	if resp.ErrorId!="server_error" {
+	if resp.ErrorId != "server_error" {
 		t.Fatalf("Unexpected error id: %s", resp.ErrorId)
 	}
 
@@ -608,7 +606,7 @@ func TestAccessAuthorizationCodePKCE(t *testing.T) {
 		sconfig.AllowedAccessTypes = AllowedAccessType{AUTHORIZATION_CODE}
 		server := NewServer(sconfig, testStorage)
 		server.AccessTokenGen = &TestingAccessTokenGen{}
-		server.Storage.SaveAuthorize(&AuthorizeData{
+		err := server.Storage.SaveAuthorize(&AuthorizeData{
 			Client:              testStorage.clients["public-client"],
 			Code:                "pkce-code",
 			ExpiresIn:           3600,
@@ -617,6 +615,9 @@ func TestAccessAuthorizationCodePKCE(t *testing.T) {
 			CodeChallenge:       test.Challenge,
 			CodeChallengeMethod: test.ChallengeMethod,
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
 		resp := server.NewResponse()
 
 		req, err := http.NewRequest("POST", "http://localhost:14000/appauth", nil)

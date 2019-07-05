@@ -57,19 +57,25 @@ func NewResponse(storage Storage) *Response {
 }
 
 // SetError sets an error id and description on the Response
-// state and uri are left blank
+// uri, state and error code is left blank
 func (r *Response) SetError(id string, description string) {
-	r.SetErrorUri(id, description, "", "")
+	r.SetErrorUri(id, description, "", "", 0)
 }
 
 // SetErrorState sets an error id, description, and state on the Response
-// uri is left blank
+// uri and error code is left blank
 func (r *Response) SetErrorState(id string, description string, state string) {
-	r.SetErrorUri(id, description, "", state)
+	r.SetErrorUri(id, description, "", state, 0)
 }
 
-// SetErrorUri sets an error id, description, state, and uri on the Response
-func (r *Response) SetErrorUri(id string, description string, uri string, state string) {
+// SetErrorCode sets an error id, description, and error code on the Response
+// uri and error code is left blank
+func (r *Response) SetErrorCode(id string, description string, errorCode int) {
+	r.SetErrorUri(id, description, "", "", errorCode)
+}
+
+// SetErrorUri sets an error id, description, state, error code and uri on the Response
+func (r *Response) SetErrorUri(id string, description string, uri string, state string, errorCode int) {
 	// get default error message
 	if description == "" {
 		description = deferror.Get(id)
@@ -92,6 +98,9 @@ func (r *Response) SetErrorUri(id string, description string, uri string, state 
 	}
 	if state != "" {
 		r.Output["state"] = state
+	}
+	if errorCode != 0 {
+		r.Output["error_code"] = errorCode
 	}
 }
 

@@ -72,3 +72,20 @@ func TestGetRedirectUrl(t *testing.T) {
 		}
 	}
 }
+
+func TestSetErrorCode(t *testing.T) {
+	resp := &Response{}
+	resp.SetErrorCode(E_ACCESS_DENIED, "user is disabled", 123)
+
+	if resp.Output["error"] != E_ACCESS_DENIED {
+		t.Errorf("expected: %s\n, got: %v", E_ACCESS_DENIED, resp.Output["error"])
+	}
+
+	if resp.Output["error_description"] != "user is disabled" {
+		t.Errorf("expected: %s\n, got: %v", "user is disabled", resp.Output["error_description"])
+	}
+
+	if resp.Output["error_code"] != 123 {
+		t.Errorf("expected: %s\n, got: %v", "user is disabled", resp.Output["error_code"])
+	}
+}

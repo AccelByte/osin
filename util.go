@@ -49,7 +49,7 @@ func CheckBasicAuth(r *http.Request) (*BasicAuth, error) {
 
 	s := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
 	if len(s) != 2 || s[0] != "Basic" {
-		return nil, errors.New("Invalid authorization header")
+		return nil, errors.New("invalid authorization header")
 	}
 
 	b, err := base64.StdEncoding.DecodeString(s[1])
@@ -58,10 +58,10 @@ func CheckBasicAuth(r *http.Request) (*BasicAuth, error) {
 	}
 	pair := strings.SplitN(string(b), ":", 2)
 	if len(pair) != 2 {
-		return nil, errors.New("Invalid authorization message")
+		return nil, errors.New("invalid authorization message")
 	}
 	if pair[0] == "" {
-		return nil, errors.New("Invalid authorization message")
+		return nil, errors.New("invalid authorization message")
 	}
 
 	return &BasicAuth{Username: pair[0], Password: pair[1]}, nil
@@ -108,13 +108,13 @@ func GetClientAuth(w *Response, r *http.Request, allowQueryParams bool) *BasicAu
 
 	auth, err := CheckBasicAuth(r)
 	if err != nil {
-		w.SetError(E_INVALID_REQUEST, "")
+		w.SetError(E_INVALID_CLIENT, "")
 		w.InternalError = err
 		return nil
 	}
 	if auth == nil {
-		w.SetError(E_INVALID_REQUEST, "")
-		w.InternalError = errors.New("Client authentication not sent")
+		w.SetError(E_INVALID_CLIENT, "")
+		w.InternalError = errors.New("client authentication not set")
 		return nil
 	}
 	return auth

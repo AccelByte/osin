@@ -256,13 +256,6 @@ func (s *Server) handleAuthorizationCodeRequest(w *Response, r *http.Request) *A
 
 	// Verify PKCE, if present in the authorization data
 	if len(ret.AuthorizeData.CodeChallenge) > 0 {
-		// https://tools.ietf.org/html/rfc7636#section-4.1
-		if matched := pkceMatcher.MatchString(ret.CodeVerifier); !matched {
-			w.SetError(E_INVALID_REQUEST, "code_verifier invalid (rfc7636)")
-			w.InternalError = errors.New("code_verifier has invalid format")
-			return nil
-		}
-
 		// https: //tools.ietf.org/html/rfc7636#section-4.6
 		codeVerifier := ""
 		switch ret.AuthorizeData.CodeChallengeMethod {
@@ -345,27 +338,27 @@ func (s *Server) handleRefreshTokenRequest(w *Response, r *http.Request) *Access
 	var err error
 	ret.AccessData, err = w.Storage.LoadRefresh(ret.Code)
 	if err != nil {
-		w.SetError(E_INVALID_GRANT, "")
+		w.SetError(E_SERVER_ERROR, "")
 		w.InternalError = err
 		return nil
 	}
 	if ret.AccessData == nil {
-		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		w.SetError(E_INVALID_GRANT, "")
 		return nil
 	}
 	if ret.AccessData.Client == nil {
-		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		w.SetError(E_INVALID_GRANT, "")
 		return nil
 	}
 	if ret.AccessData.Client.GetRedirectURI() == "" {
-		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		w.SetError(E_INVALID_GRANT, "")
 		return nil
 	}
 
 	// client must be the same as the previous token
 	if !CheckClientID(ret.AccessData.Client, ret.Client.GetID()) {
-		w.SetError(E_INVALID_CLIENT, "")
-		w.InternalError = errors.New("Client id must be the same from previous token")
+		w.SetError(E_INVALID_GRANT, "")
+		w.InternalError = errors.New("client id must be the same from previous token")
 		return nil
 
 	}
@@ -662,23 +655,23 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 // storage. Sets an error on the response if auth fails or a server error occurs.
 func getClient(auth *BasicAuth, storage Storage, w *Response) Client {
 	client, err := storage.GetClient(auth.Username)
-	if err != nil {
+	if err != nil && err != ErrNotFound {
 		w.SetError(E_SERVER_ERROR, "")
 		w.InternalError = err
 		return nil
 	}
 	if client == nil {
-		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		w.SetError(E_INVALID_CLIENT, "")
 		return nil
 	}
 
 	if !CheckClientSecret(client, auth.Password) {
-		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		w.SetError(E_INVALID_CLIENT, "")
 		return nil
 	}
 
 	if client.GetRedirectURI() == "" {
-		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		w.SetError(E_INVALID_CLIENT, "")
 		return nil
 	}
 	return client

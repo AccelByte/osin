@@ -155,6 +155,67 @@ func TestAccessRefreshTokenSaveToken(t *testing.T) {
 	}
 }
 
+func TestAccessRefreshTokenInvalidBasicAuthClientID(t *testing.T) {
+	sconfig := NewServerConfig()
+	sconfig.AllowedAccessTypes = AllowedAccessType{REFRESH_TOKEN}
+	server := NewServer(sconfig, NewTestingStorage())
+	server.AccessTokenGen = &TestingAccessTokenGen{}
+	server.Config.RetainTokenAfterRefresh = true
+	resp := server.NewResponse()
+
+	req, err := http.NewRequest("POST", "http://localhost:14000/appauth", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.SetBasicAuth("invalid-id", "aabbccdd")
+
+	req.Form = make(url.Values)
+	req.Form.Set("grant_type", string(REFRESH_TOKEN))
+	req.Form.Set("refresh_token", "r9999")
+	req.Form.Set("state", "a")
+	req.PostForm = make(url.Values)
+
+	if ar := server.HandleAccessRequest(resp, req); ar != nil {
+		ar.Authorized = true
+		server.FinishAccessRequest(resp, req, ar)
+	}
+
+	if resp.ErrorId != E_INVALID_CLIENT {
+		t.Logf("expected error %s, but %s returned instead", E_INVALID_CLIENT, resp.ErrorId)
+		t.Fail()
+	}
+}
+func TestAccessRefreshTokenMissingBasicAuthClientID(t *testing.T) {
+	sconfig := NewServerConfig()
+	sconfig.AllowedAccessTypes = AllowedAccessType{REFRESH_TOKEN}
+	server := NewServer(sconfig, NewTestingStorage())
+	server.AccessTokenGen = &TestingAccessTokenGen{}
+	server.Config.RetainTokenAfterRefresh = true
+	resp := server.NewResponse()
+
+	req, err := http.NewRequest("POST", "http://localhost:14000/appauth", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.SetBasicAuth("", "aabbccdd")
+
+	req.Form = make(url.Values)
+	req.Form.Set("grant_type", string(REFRESH_TOKEN))
+	req.Form.Set("refresh_token", "r9999")
+	req.Form.Set("state", "a")
+	req.PostForm = make(url.Values)
+
+	if ar := server.HandleAccessRequest(resp, req); ar != nil {
+		ar.Authorized = true
+		server.FinishAccessRequest(resp, req, ar)
+	}
+
+	if resp.ErrorId != E_INVALID_CLIENT {
+		t.Logf("expected error %s, but %s returned instead", E_INVALID_CLIENT, resp.ErrorId)
+		t.Fail()
+	}
+}
+
 func TestAccessPassword(t *testing.T) {
 	sconfig := NewServerConfig()
 	sconfig.AllowedAccessTypes = AllowedAccessType{PASSWORD}
@@ -291,7 +352,7 @@ func TestPlatformToken(t *testing.T) {
 	req.PostForm = make(url.Values)
 
 	if ar := server.HandleAccessRequest(resp, req); ar != nil {
-		ar.Authorized=true
+		ar.Authorized = true
 		server.FinishAccessRequest(resp, req, ar)
 	}
 
@@ -334,11 +395,11 @@ func TestPlatformTokenWithoutClientSecret(t *testing.T) {
 	req.PostForm = make(url.Values)
 
 	if ar := server.HandleAccessRequest(resp, req); ar != nil {
-		ar.Authorized=true
+		ar.Authorized = true
 		server.FinishAccessRequest(resp, req, ar)
 	}
 
-	if  resp.InternalError != nil {
+	if resp.InternalError != nil {
 		t.Fatalf("Error in response: %s", resp.InternalError)
 	}
 
@@ -376,7 +437,7 @@ func TestPlatformTokenWithoutClientID(t *testing.T) {
 	req.PostForm = make(url.Values)
 
 	if ar := server.HandleAccessRequest(resp, req); ar != nil {
-		ar.Authorized=true
+		ar.Authorized = true
 		server.FinishAccessRequest(resp, req, ar)
 	}
 
@@ -384,7 +445,7 @@ func TestPlatformTokenWithoutClientID(t *testing.T) {
 		t.Fatalf("Should be an error")
 	}
 
-	if resp.ErrorId !="unauthorized_client" {
+	if resp.ErrorId != "unauthorized_client" {
 		t.Fatalf("Unexpected error id: %s", resp.ErrorId)
 	}
 
@@ -411,7 +472,7 @@ func TestPlatformTokenWithBasicAuth(t *testing.T) {
 	req.PostForm = make(url.Values)
 
 	if ar := server.HandleAccessRequest(resp, req); ar != nil {
-		ar.Authorized=true
+		ar.Authorized = true
 		server.FinishAccessRequest(resp, req, ar)
 	}
 
@@ -454,7 +515,7 @@ func TestPlatformTokenWithInvalidClient(t *testing.T) {
 	req.PostForm = make(url.Values)
 
 	if ar := server.HandleAccessRequest(resp, req); ar != nil {
-		ar.Authorized=true
+		ar.Authorized = true
 		server.FinishAccessRequest(resp, req, ar)
 	}
 
@@ -462,7 +523,7 @@ func TestPlatformTokenWithInvalidClient(t *testing.T) {
 		t.Fatalf("Should be an error")
 	}
 
-	if resp.ErrorId!="server_error" {
+	if resp.ErrorId != E_INVALID_CLIENT {
 		t.Fatalf("Unexpected error id: %s", resp.ErrorId)
 	}
 

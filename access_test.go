@@ -104,6 +104,55 @@ func TestAccessRefreshToken(t *testing.T) {
 	}
 }
 
+func TestAccessRefreshTokenFromCookie(t *testing.T) {
+	sconfig := NewServerConfig()
+	sconfig.AllowedAccessTypes = AllowedAccessType{REFRESH_TOKEN}
+	server := NewServer(sconfig, NewTestingStorage())
+	server.AccessTokenGen = &TestingAccessTokenGen{}
+	resp := server.NewResponse()
+
+	req, err := http.NewRequest("POST", "http://localhost:14000/appauth", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.SetBasicAuth("1234", "aabbccdd")
+	req.Header.Set("Cookie", "refresh_token=r9999")
+
+	req.Form = make(url.Values)
+	req.Form.Set("grant_type", string(REFRESH_TOKEN))
+	req.Form.Set("state", "a")
+	req.PostForm = make(url.Values)
+
+	if ar := server.HandleAccessRequest(resp, req); ar != nil {
+		ar.Authorized = true
+		server.FinishAccessRequest(resp, req, ar)
+	}
+
+	if _, err := server.Storage.LoadRefresh("r9999"); err == nil {
+		t.Fatalf("token was not deleted")
+	}
+
+	if resp.IsError && resp.InternalError != nil {
+		t.Fatalf("Error in response: %s", resp.InternalError)
+	}
+
+	if resp.IsError {
+		t.Fatalf("Should not be an error")
+	}
+
+	if resp.Type != DATA {
+		t.Fatalf("Response should be data")
+	}
+
+	if d := resp.Output["access_token"]; d != "1" {
+		t.Fatalf("Unexpected access token: %s", d)
+	}
+
+	if d := resp.Output["refresh_token"]; d != "r1" {
+		t.Fatalf("Unexpected refresh token: %s", d)
+	}
+}
+
 func TestAccessRefreshTokenSaveToken(t *testing.T) {
 	sconfig := NewServerConfig()
 	sconfig.AllowedAccessTypes = AllowedAccessType{REFRESH_TOKEN}

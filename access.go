@@ -314,9 +314,13 @@ func (s *Server) handleRefreshTokenRequest(w *Response, r *http.Request) *Access
 	}
 
 	// generate access token
+	refreshToken := r.Form.Get("refresh_token")
+	if refreshToken == "" {
+		refreshToken = getRefreshTokenCookie(r)
+	}
 	ret := &AccessRequest{
 		Type:            REFRESH_TOKEN,
-		Code:            r.Form.Get("refresh_token"),
+		Code:            refreshToken,
 		Scope:           r.Form.Get("scope"),
 		GenerateRefresh: true,
 		Expiration:      s.Config.AccessExpiration,
@@ -696,4 +700,13 @@ func getClientWithoutSecret(clientId string, storage Storage, w *Response) Clien
 		return nil
 	}
 	return client
+}
+
+// getRefreshTokenCookie get refresh token cookie from request header
+func getRefreshTokenCookie(request *http.Request) string {
+	refreshToken, err := request.Cookie("refresh_token")
+	if err != nil {
+		return ""
+	}
+	return refreshToken.Value
 }

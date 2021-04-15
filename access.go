@@ -648,6 +648,11 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 		if ret.Scope != "" {
 			w.Output["scope"] = ret.Scope
 		}
+
+		AddTokenInCookie(w, ret.AccessToken, "access_token")
+		if ret.RefreshToken != "" {
+			AddTokenInCookie(w, ret.RefreshToken, "refresh_token")
+		}
 	} else {
 		w.SetError(E_ACCESS_DENIED, "")
 	}

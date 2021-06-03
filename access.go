@@ -644,14 +644,20 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 		w.Output["expires_in"] = ret.ExpiresIn
 		if ret.RefreshToken != "" {
 			w.Output["refresh_token"] = ret.RefreshToken
+
+			refreshTokenJwt := decodeToken(ret.RefreshToken)
+			if refreshTokenJwt != nil {
+				w.Output["refresh_expires_in"] = refreshTokenJwt.Expiration - refreshTokenJwt.IssueAt
+				AddTokenInCookie(w, ret.RefreshToken, "refresh_token", refreshTokenJwt.Expiration)
+			}
 		}
 		if ret.Scope != "" {
 			w.Output["scope"] = ret.Scope
 		}
 
-		AddTokenInCookie(w, ret.AccessToken, "access_token")
-		if ret.RefreshToken != "" {
-			AddTokenInCookie(w, ret.RefreshToken, "refresh_token")
+		accessTokenJwt := decodeToken(ret.AccessToken)
+		if accessTokenJwt != nil {
+			AddTokenInCookie(w, ret.AccessToken, "access_token", accessTokenJwt.Expiration)
 		}
 	} else {
 		w.SetError(E_ACCESS_DENIED, "")

@@ -5,6 +5,9 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+
+	"github.com/AccelByte/go-jose/json"
+	"github.com/sirupsen/logrus"
 )
 
 // Parse basic authentication header
@@ -16,6 +19,12 @@ type BasicAuth struct {
 // Parse bearer authentication header
 type BearerAuth struct {
 	Code string
+}
+
+// JWTPayload represents JWT payload
+type JWTPayload struct {
+	Expiration int64 `json:"exp"`
+	IssueAt    int64 `json:"iat"`
 }
 
 // CheckClientSecret determines whether the given secret matches a secret held by the client.
@@ -118,4 +127,32 @@ func GetClientAuth(w *Response, r *http.Request, allowQueryParams bool) *BasicAu
 		return nil
 	}
 	return auth
+}
+
+// decodeToken get the decoded JWT Payload from jwt string
+func decodeToken(jwt string) *JWTPayload {
+	jwtParts := strings.Split(jwt, ".")
+	if len(jwtParts) != 3 {
+		logrus.Warn("token part is invalid")
+		return nil
+	}
+
+	if l := len(jwtParts[1]) % 4; l > 0 {
+		jwtParts[1] += strings.Repeat("=", 4-l)
+	}
+
+	decodedPayload, err := base64.StdEncoding.DecodeString(jwtParts[1])
+	if err != nil {
+		logrus.Warn("unable to decode JWT payload: ", err)
+		return nil
+	}
+
+	var jwtPayload JWTPayload
+	err = json.Unmarshal(decodedPayload, &jwtPayload)
+	if err != nil {
+		logrus.Warn("unable to unmarshall JWT payload: ", err)
+		return nil
+	}
+
+	return &jwtPayload
 }

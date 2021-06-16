@@ -314,9 +314,13 @@ func (s *Server) handleRefreshTokenRequest(w *Response, r *http.Request) *Access
 	}
 
 	// generate access token
+	refreshToken := r.Form.Get("refresh_token")
+	if refreshToken == "" {
+		refreshToken = getRefreshTokenCookie(r)
+	}
 	ret := &AccessRequest{
 		Type:            REFRESH_TOKEN,
-		Code:            r.Form.Get("refresh_token"),
+		Code:            refreshToken,
 		Scope:           r.Form.Get("scope"),
 		GenerateRefresh: true,
 		Expiration:      s.Config.AccessExpiration,
@@ -640,9 +644,23 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 		w.Output["expires_in"] = ret.ExpiresIn
 		if ret.RefreshToken != "" {
 			w.Output["refresh_token"] = ret.RefreshToken
+
+			refreshTokenJwt := decodeToken(ret.RefreshToken)
+			if refreshTokenJwt != nil {
+				w.Output["refresh_expires_in"] = refreshTokenJwt.Expiration - refreshTokenJwt.IssueAt
+				if ar.Type != CLIENT_CREDENTIALS {
+					AddTokenInCookie(w, ret.RefreshToken, "refresh_token", refreshTokenJwt.Expiration)
+				}
+			}
 		}
 		if ret.Scope != "" {
 			w.Output["scope"] = ret.Scope
+		}
+
+		if ar.Type != CLIENT_CREDENTIALS {
+			if accessTokenJwt := decodeToken(ret.AccessToken); accessTokenJwt != nil {
+				AddTokenInCookie(w, ret.AccessToken, "access_token", accessTokenJwt.Expiration)
+			}
 		}
 	} else {
 		w.SetError(E_ACCESS_DENIED, "")
@@ -696,4 +714,13 @@ func getClientWithoutSecret(clientId string, storage Storage, w *Response) Clien
 		return nil
 	}
 	return client
+}
+
+// getRefreshTokenCookie get refresh token cookie from request header
+func getRefreshTokenCookie(request *http.Request) string {
+	refreshToken, err := request.Cookie("refresh_token")
+	if err != nil {
+		return ""
+	}
+	return refreshToken.Value
 }

@@ -58,6 +58,9 @@ type AccessRequest struct {
 
 	// Optional code_verifier as described in rfc7636
 	CodeVerifier string
+
+	// Skip set access_token and refresh_token cookies
+	SkipSetCookie bool
 }
 
 // AccessData represents an access grant (tokens, expiration, client, etc)
@@ -535,6 +538,7 @@ func (s *Server) handleClientCredentialsRequest(w *Response, r *http.Request) *A
 		GenerateRefresh: false,
 		Expiration:      s.Config.AccessExpiration,
 		HttpRequest:     r,
+		SkipSetCookie:   true,
 	}
 
 	// must have a valid client
@@ -648,7 +652,7 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 			refreshTokenJwt := decodeToken(ret.RefreshToken)
 			if refreshTokenJwt != nil {
 				w.Output["refresh_expires_in"] = refreshTokenJwt.Expiration - refreshTokenJwt.IssueAt
-				if ar.Type != CLIENT_CREDENTIALS {
+				if !ar.SkipSetCookie {
 					AddTokenInCookie(w, ret.RefreshToken, "refresh_token", refreshTokenJwt.Expiration)
 				}
 			}
@@ -657,7 +661,7 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 			w.Output["scope"] = ret.Scope
 		}
 
-		if ar.Type != CLIENT_CREDENTIALS {
+		if !ar.SkipSetCookie {
 			if accessTokenJwt := decodeToken(ret.AccessToken); accessTokenJwt != nil {
 				AddTokenInCookie(w, ret.AccessToken, "access_token", accessTokenJwt.Expiration)
 			}

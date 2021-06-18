@@ -24,6 +24,7 @@ func TestAccessAuthorizationCode(t *testing.T) {
 	req.Form.Set("grant_type", string(AUTHORIZATION_CODE))
 	req.Form.Set("code", "9999")
 	req.Form.Set("state", "a")
+	req.Form.Set("client_id", "1234")
 	req.PostForm = make(url.Values)
 
 	if ar := server.HandleAccessRequest(resp, req); ar != nil {
@@ -51,6 +52,44 @@ func TestAccessAuthorizationCode(t *testing.T) {
 
 	if d := resp.Output["refresh_token"]; d != "r1" {
 		t.Fatalf("Unexpected refresh token: %s", d)
+	}
+}
+
+func TestAccessAuthorizationCodePublicClientWithoutPKCE(t *testing.T) {
+	sconfig := NewServerConfig()
+	sconfig.AllowedAccessTypes = AllowedAccessType{AUTHORIZATION_CODE}
+	sconfig.RequirePKCEForPublicClients = true
+	server := NewServer(sconfig, NewTestingStorage())
+	server.AccessTokenGen = &TestingAccessTokenGen{}
+	resp := server.NewResponse()
+
+	req, err := http.NewRequest("POST", "http://localhost:14000/appauth", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Form = make(url.Values)
+	req.Form.Set("grant_type", string(AUTHORIZATION_CODE))
+	req.Form.Set("code", "9999")
+	req.Form.Set("state", "a")
+	req.Form.Set("client_id", "public-client")
+	req.PostForm = make(url.Values)
+
+	if ar := server.HandleAccessRequest(resp, req); ar != nil {
+		ar.Authorized = true
+		server.FinishAccessRequest(resp, req, ar)
+	}
+
+	if !resp.IsError {
+		t.Fatalf("Should be an error")
+	}
+
+	if resp.ErrorId!="invalid_request" {
+		t.Fatalf("Unexpected error id: %s", resp.ErrorId)
+	}
+
+	if resp.Type != DATA {
+		t.Fatalf("Response should be data")
 	}
 }
 
@@ -741,6 +780,7 @@ func TestAccessAuthorizationCodePKCE(t *testing.T) {
 		req.Form.Set("code", "pkce-code")
 		req.Form.Set("state", "a")
 		req.Form.Set("code_verifier", test.Verifier)
+		req.Form.Set("client_id", "public-client")
 		req.PostForm = make(url.Values)
 
 		if ar := server.HandleAccessRequest(resp, req); ar != nil {

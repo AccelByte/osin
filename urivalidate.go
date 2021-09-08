@@ -99,7 +99,7 @@ func ValidateUri(baseUri string, redirectUri string) error {
 	return nil
 }
 
-// Returns the first uri from an uri list
+// FirstUri Returns the first uri from an uri list
 func FirstUri(baseUriList string, separator string) string {
 	if separator != "" {
 		slist := strings.Split(baseUriList, separator)

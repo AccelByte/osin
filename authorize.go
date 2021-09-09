@@ -146,8 +146,8 @@ func (s *Server) HandleAuthorizeRequest(w *Response, r *http.Request) *Authorize
 		comboClient.Clients = append(comboClient.Clients, cl)
 
 		// check redirect uri, if there are multiple client redirect uri's
-		// don't set the uri
-		if ret.RedirectUri == "" && FirstUri(cl.GetRedirectURI(), s.Config.RedirectUriSeparator) == cl.GetRedirectURI() {
+		// set the first redirect_uri of the client
+		if ret.RedirectUri == "" {
 			ret.RedirectUri = FirstUri(cl.GetRedirectURI(), s.Config.RedirectUriSeparator)
 		}
 	}

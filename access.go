@@ -47,6 +47,12 @@ type AccessRequest struct {
 	// Token expiration in seconds. Change if different from default
 	Expiration int32
 
+	// Refresh Token expiration in seconds. Change if different from default
+	RefreshExpiration int32
+
+	// Extend Refresh Token expiration
+	ExtendRefreshExpiration bool
+
 	// Set if a refresh token should be generated
 	GenerateRefresh bool
 
@@ -82,6 +88,9 @@ type AccessData struct {
 
 	// Token expiration in seconds
 	ExpiresIn int32
+
+	// Refresh Token expiration in seconds
+	RefreshExpireIn int32
 
 	// Requested scope
 	Scope string
@@ -192,13 +201,14 @@ func (s *Server) handleAuthorizationCodeRequest(w *Response, r *http.Request) *A
 
 	// generate access token
 	ret := &AccessRequest{
-		Type:            AUTHORIZATION_CODE,
-		Code:            r.Form.Get("code"),
-		CodeVerifier:    r.Form.Get("code_verifier"),
-		RedirectUri:     r.Form.Get("redirect_uri"),
-		GenerateRefresh: true,
-		Expiration:      s.Config.AccessExpiration,
-		HttpRequest:     r,
+		Type:              AUTHORIZATION_CODE,
+		Code:              r.Form.Get("code"),
+		CodeVerifier:      r.Form.Get("code_verifier"),
+		RedirectUri:       r.Form.Get("redirect_uri"),
+		GenerateRefresh:   true,
+		Expiration:        s.Config.AccessExpiration,
+		RefreshExpiration: s.Config.RefreshExpiration,
+		HttpRequest:       r,
 	}
 
 	// "code" is required
@@ -322,12 +332,13 @@ func (s *Server) handleRefreshTokenRequest(w *Response, r *http.Request) *Access
 		refreshToken = getRefreshTokenCookie(r)
 	}
 	ret := &AccessRequest{
-		Type:            REFRESH_TOKEN,
-		Code:            refreshToken,
-		Scope:           r.Form.Get("scope"),
-		GenerateRefresh: true,
-		Expiration:      s.Config.AccessExpiration,
-		HttpRequest:     r,
+		Type:              REFRESH_TOKEN,
+		Code:              refreshToken,
+		Scope:             r.Form.Get("scope"),
+		GenerateRefresh:   true,
+		Expiration:        s.Config.AccessExpiration,
+		RefreshExpiration: s.Config.RefreshExpiration,
+		HttpRequest:       r,
 	}
 
 	// "refresh_token" is required
@@ -395,13 +406,14 @@ func (s *Server) handlePasswordRequest(w *Response, r *http.Request) *AccessRequ
 
 	// generate access token
 	ret := &AccessRequest{
-		Type:            PASSWORD,
-		Username:        r.Form.Get("username"),
-		Password:        r.Form.Get("password"),
-		Scope:           r.Form.Get("scope"),
-		GenerateRefresh: true,
-		Expiration:      s.Config.AccessExpiration,
-		HttpRequest:     r,
+		Type:              PASSWORD,
+		Username:          r.Form.Get("username"),
+		Password:          r.Form.Get("password"),
+		Scope:             r.Form.Get("scope"),
+		GenerateRefresh:   true,
+		Expiration:        s.Config.AccessExpiration,
+		RefreshExpiration: s.Config.RefreshExpiration,
+		HttpRequest:       r,
 	}
 
 	// "username" and "password" is required
@@ -430,12 +442,13 @@ func (s *Server) handleAnonymousRequest(w *Response, r *http.Request) *AccessReq
 
 	// generate access token
 	ret := &AccessRequest{
-		Type:            ANONYMOUS,
-		Username:        r.Form.Get("user_id"),
-		Scope:           r.Form.Get("scope"),
-		GenerateRefresh: true,
-		Expiration:      s.Config.AccessExpiration,
-		HttpRequest:     r,
+		Type:              ANONYMOUS,
+		Username:          r.Form.Get("user_id"),
+		Scope:             r.Form.Get("scope"),
+		GenerateRefresh:   true,
+		Expiration:        s.Config.AccessExpiration,
+		RefreshExpiration: s.Config.RefreshExpiration,
+		HttpRequest:       r,
 	}
 
 	// must have a valid client
@@ -458,12 +471,13 @@ func (s *Server) handleDeviceRequest(w *Response, r *http.Request) *AccessReques
 
 	// generate access token
 	ret := &AccessRequest{
-		Type:            DEVICE,
-		Password:        r.Form.Get("device_id"),
-		Scope:           r.Form.Get("scope"),
-		GenerateRefresh: true,
-		Expiration:      s.Config.AccessExpiration,
-		HttpRequest:     r,
+		Type:              DEVICE,
+		Password:          r.Form.Get("device_id"),
+		Scope:             r.Form.Get("scope"),
+		GenerateRefresh:   true,
+		Expiration:        s.Config.AccessExpiration,
+		RefreshExpiration: s.Config.RefreshExpiration,
+		HttpRequest:       r,
 	}
 
 	// must have a valid client
@@ -505,12 +519,13 @@ func (s *Server) handlePlatformRequest(w *Response, r *http.Request) *AccessRequ
 
 	// generate access token
 	ret := &AccessRequest{
-		Type:            PLATFORM,
-		Password:        r.Form.Get("platform_token"),
-		Scope:           r.Form.Get("scope"),
-		GenerateRefresh: true,
-		Expiration:      s.Config.AccessExpiration,
-		HttpRequest:     r,
+		Type:              PLATFORM,
+		Password:          r.Form.Get("platform_token"),
+		Scope:             r.Form.Get("scope"),
+		GenerateRefresh:   true,
+		Expiration:        s.Config.AccessExpiration,
+		RefreshExpiration: s.Config.RefreshExpiration,
+		HttpRequest:       r,
 	}
 
 	// must have a valid client
@@ -604,14 +619,15 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 		if ar.ForceAccessData == nil {
 			// generate access token
 			ret = &AccessData{
-				Client:        ar.Client,
-				AuthorizeData: ar.AuthorizeData,
-				AccessData:    ar.AccessData,
-				RedirectUri:   redirectUri,
-				CreatedAt:     s.Now(),
-				ExpiresIn:     ar.Expiration,
-				UserData:      ar.UserData,
-				Scope:         ar.Scope,
+				Client:          ar.Client,
+				AuthorizeData:   ar.AuthorizeData,
+				AccessData:      ar.AccessData,
+				RedirectUri:     redirectUri,
+				CreatedAt:       s.Now(),
+				ExpiresIn:       ar.Expiration,
+				RefreshExpireIn: ar.RefreshExpiration,
+				UserData:        ar.UserData,
+				Scope:           ar.Scope,
 			}
 
 			// generate access token
@@ -648,23 +664,21 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 		w.Output["expires_in"] = ret.ExpiresIn
 		if ret.RefreshToken != "" {
 			w.Output["refresh_token"] = ret.RefreshToken
-
-			refreshTokenJwt := decodeToken(ret.RefreshToken)
-			if refreshTokenJwt != nil {
-				w.Output["refresh_expires_in"] = refreshTokenJwt.Expiration - refreshTokenJwt.IssueAt
-				if !ar.SkipSetCookie {
-					AddTokenInCookie(w, ret.RefreshToken, "refresh_token", refreshTokenJwt.Expiration)
-				}
+			if ar.ExtendRefreshExpiration == true {
+				ret.RefreshExpireIn = s.Config.ExtendRefreshExpiration
 			}
+			w.Output["refresh_expires_in"] = ret.RefreshExpireIn
+			if !ar.SkipSetCookie {
+				AddTokenInCookie(w, ret.RefreshToken, "refresh_token", int64(int32(time.Now().Unix())+ret.RefreshExpireIn))
+			}
+
 		}
 		if ret.Scope != "" {
 			w.Output["scope"] = ret.Scope
 		}
 
 		if !ar.SkipSetCookie {
-			if accessTokenJwt := decodeToken(ret.AccessToken); accessTokenJwt != nil {
-				AddTokenInCookie(w, ret.AccessToken, "access_token", accessTokenJwt.Expiration)
-			}
+			AddTokenInCookie(w, ret.AccessToken, "access_token", int64(int32(time.Now().Unix())+ret.ExpiresIn))
 		}
 	} else {
 		w.SetError(E_ACCESS_DENIED, "")

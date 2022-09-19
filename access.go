@@ -50,9 +50,6 @@ type AccessRequest struct {
 	// Refresh Token expiration in seconds. Change if different from default
 	RefreshExpiration int32
 
-	// Extend Refresh Token expiration
-	ExtendRefreshExpiration bool
-
 	// Set if a refresh token should be generated
 	GenerateRefresh bool
 
@@ -201,14 +198,13 @@ func (s *Server) handleAuthorizationCodeRequest(w *Response, r *http.Request) *A
 
 	// generate access token
 	ret := &AccessRequest{
-		Type:              AUTHORIZATION_CODE,
-		Code:              r.Form.Get("code"),
-		CodeVerifier:      r.Form.Get("code_verifier"),
-		RedirectUri:       r.Form.Get("redirect_uri"),
-		GenerateRefresh:   true,
-		Expiration:        s.Config.AccessExpiration,
-		RefreshExpiration: s.Config.RefreshExpiration,
-		HttpRequest:       r,
+		Type:            AUTHORIZATION_CODE,
+		Code:            r.Form.Get("code"),
+		CodeVerifier:    r.Form.Get("code_verifier"),
+		RedirectUri:     r.Form.Get("redirect_uri"),
+		GenerateRefresh: true,
+		Expiration:      s.Config.AccessExpiration,
+		HttpRequest:     r,
 	}
 
 	// "code" is required
@@ -664,9 +660,6 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 		w.Output["expires_in"] = ret.ExpiresIn
 		if ret.RefreshToken != "" {
 			w.Output["refresh_token"] = ret.RefreshToken
-			if ar.ExtendRefreshExpiration == true {
-				ret.RefreshExpireIn = s.Config.ExtendRefreshExpiration
-			}
 			w.Output["refresh_expires_in"] = ret.RefreshExpireIn
 			if !ar.SkipSetCookie {
 				AddTokenInCookie(w, ret.RefreshToken, "refresh_token", int64(int32(time.Now().Unix())+ret.RefreshExpireIn))

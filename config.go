@@ -34,6 +34,9 @@ type ServerConfig struct {
 	// Access token expiration in seconds (default 1 hour)
 	AccessExpiration int32
 
+	// Refresh token expiration in seconds (default 1 day)
+	RefreshExpiration int32
+
 	// Token type to return
 	TokenType string
 
@@ -71,6 +74,7 @@ func NewServerConfig() *ServerConfig {
 	return &ServerConfig{
 		AuthorizationExpiration:   250,
 		AccessExpiration:          3600,
+		RefreshExpiration:         86400,
 		TokenType:                 "Bearer",
 		AllowedAuthorizeTypes:     AllowedAuthorizeType{CODE},
 		AllowedAccessTypes:        AllowedAccessType{AUTHORIZATION_CODE},

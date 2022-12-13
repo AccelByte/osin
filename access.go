@@ -662,7 +662,7 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 			w.Output["refresh_token"] = ret.RefreshToken
 			w.Output["refresh_expires_in"] = ret.RefreshExpireIn
 			if !ar.SkipSetCookie {
-				AddTokenInCookie(w, ret.RefreshToken, "refresh_token", int64(int32(time.Now().Unix())+ret.RefreshExpireIn))
+				AddTokenInCookie(w, ret.RefreshToken, "refresh_token", int64(int32(time.Now().Unix())+ret.RefreshExpireIn), s.Config.CookieDomain)
 			}
 		}
 		if ret.Scope != "" {
@@ -670,7 +670,7 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 		}
 
 		if !ar.SkipSetCookie {
-			AddTokenInCookie(w, ret.AccessToken, "access_token", int64(int32(time.Now().Unix())+ret.ExpiresIn))
+			AddTokenInCookie(w, ret.AccessToken, "access_token", int64(int32(time.Now().Unix())+ret.ExpiresIn), s.Config.CookieDomain)
 		}
 	} else {
 		w.SetError(E_ACCESS_DENIED, "")

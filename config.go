@@ -37,6 +37,9 @@ type ServerConfig struct {
 	// Refresh token expiration in seconds (default 1 day)
 	RefreshExpiration int32
 
+	// Domain attribute of token cookie
+	CookieDomain string
+
 	// Token type to return
 	TokenType string
 
@@ -82,5 +85,6 @@ func NewServerConfig() *ServerConfig {
 		AllowClientSecretInParams: false,
 		AllowGetAccessRequest:     false,
 		RetainTokenAfterRefresh:   false,
+		CookieDomain:              "",
 	}
 }

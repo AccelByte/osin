@@ -171,36 +171,53 @@ func (s *Server) HandleAccessRequest(w *Response, r *http.Request) *AccessReques
 }
 
 func (s *Server) handleAuthorizationCodeRequest(w *Response, r *http.Request) *AccessRequest {
-	auth, err := CheckBasicAuth(r)
+	clientID := r.Form.Get("client_id")
+	if clientID == "" {
+		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		return nil
+	}
+	client, err := w.Storage.GetClient(clientID)
 	if err != nil {
 		w.SetError(E_SERVER_ERROR, "")
 		w.InternalError = err
 		return nil
 	}
+	if client == nil {
+		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		return nil
+	}
+	var publicClient bool
+	if CheckClientSecret(client, ""){
+		publicClient=true
 
-	var clientID string
-	var client Client
-	if auth == nil {
-		clientID = r.Form.Get("client_id")
-		if clientID == "" {
-			w.SetError(E_UNAUTHORIZED_CLIENT, "")
-			return nil
-		}
-		client = getClientWithoutSecret(clientID, w.Storage, w)
-	} else {
+	} else{
 		// get client authentication
 		auth := GetClientAuth(w, r, s.Config.AllowClientSecretInParams)
 		if auth == nil {
 			return nil
 		}
-		client = getClient(auth, w.Storage, w)
+		if !CheckClientSecret(client,auth.Password){
+			w.SetError(E_UNAUTHORIZED_CLIENT, "")
+			return nil
+		}
+	}
+
+
+	var codeVerifier string
+	// Optional PKCE support (https://tools.ietf.org/html/rfc7636)
+	if codeVerifier = r.Form.Get("code_verifier"); len(codeVerifier) == 0 {
+		if s.Config.RequirePKCEForPublicClients && publicClient {
+			// https://tools.ietf.org/html/rfc7636#section-4.4.1
+			w.SetError(E_INVALID_REQUEST, "code_verifier (rfc7636) required for public clients")
+			return nil
+		}
 	}
 
 	// generate access token
 	ret := &AccessRequest{
 		Type:            AUTHORIZATION_CODE,
 		Code:            r.Form.Get("code"),
-		CodeVerifier:    r.Form.Get("code_verifier"),
+		CodeVerifier:    codeVerifier,
 		RedirectUri:     r.Form.Get("redirect_uri"),
 		GenerateRefresh: true,
 		Expiration:      s.Config.AccessExpiration,
@@ -259,7 +276,7 @@ func (s *Server) handleAuthorizationCodeRequest(w *Response, r *http.Request) *A
 	}
 	if ret.AuthorizeData.RedirectUri != ret.RedirectUri {
 		w.SetError(E_INVALID_REQUEST, "")
-		w.InternalError = errors.New("Redirect uri is different")
+		w.InternalError = errors.New("redirect uri is different")
 		return nil
 	}
 

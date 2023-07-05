@@ -117,7 +117,7 @@ func GetClientAuth(w *Response, r *http.Request, allowQueryParams bool) *BasicAu
 
 	auth, err := CheckBasicAuth(r)
 	if err != nil {
-		w.SetError(E_INVALID_CLIENT, "")
+		w.SetError(E_INVALID_CLIENT, "failed to check basic oauth client")
 		w.InternalError = err
 		return nil
 	}

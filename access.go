@@ -173,7 +173,7 @@ func (s *Server) HandleAccessRequest(w *Response, r *http.Request) *AccessReques
 func (s *Server) handleAuthorizationCodeRequest(w *Response, r *http.Request) *AccessRequest {
 	auth, err := CheckBasicAuth(r)
 	if err != nil {
-		w.SetError(E_SERVER_ERROR, "")
+		w.SetError(E_SERVER_ERROR, err.Error())
 		w.InternalError = err
 		return nil
 	}
@@ -183,7 +183,7 @@ func (s *Server) handleAuthorizationCodeRequest(w *Response, r *http.Request) *A
 	if auth == nil {
 		clientID = r.Form.Get("client_id")
 		if clientID == "" {
-			w.SetError(E_UNAUTHORIZED_CLIENT, "")
+			w.SetError(E_UNAUTHORIZED_CLIENT, "missing client_id in form body")
 			return nil
 		}
 		client = getClientWithoutSecret(clientID, w.Storage, w)
@@ -209,7 +209,7 @@ func (s *Server) handleAuthorizationCodeRequest(w *Response, r *http.Request) *A
 
 	// "code" is required
 	if ret.Code == "" {
-		w.SetError(E_INVALID_GRANT, "")
+		w.SetError(E_INVALID_GRANT, "authorization code is empty")
 		return nil
 	}
 
@@ -221,30 +221,30 @@ func (s *Server) handleAuthorizationCodeRequest(w *Response, r *http.Request) *A
 	// must be a valid authorization code
 	ret.AuthorizeData, err = w.Storage.LoadAuthorize(ret.Code)
 	if err != nil {
-		w.SetError(E_INVALID_GRANT, "")
+		w.SetError(E_INVALID_GRANT, "failed to load authorize data")
 		w.InternalError = err
 		return nil
 	}
 	if ret.AuthorizeData == nil {
-		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		w.SetError(E_UNAUTHORIZED_CLIENT, "authorize data is empty")
 		return nil
 	}
 	if ret.AuthorizeData.Client == nil {
-		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		w.SetError(E_UNAUTHORIZED_CLIENT, "client is empty in authorize data")
 		return nil
 	}
 	if ret.AuthorizeData.Client.GetRedirectURI() == "" {
-		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		w.SetError(E_UNAUTHORIZED_CLIENT, "authorize client redirect uri is empty")
 		return nil
 	}
 	if ret.AuthorizeData.IsExpiredAt(s.Now()) {
-		w.SetError(E_INVALID_GRANT, "")
+		w.SetError(E_INVALID_GRANT, "authorization code is expired")
 		return nil
 	}
 
 	// code must be from the client
 	if !CheckClientID(ret.AuthorizeData.Client, ret.Client.GetID()) {
-		w.SetError(E_INVALID_GRANT, "")
+		w.SetError(E_INVALID_GRANT, "authorize client id not match")
 		return nil
 	}
 
@@ -253,13 +253,13 @@ func (s *Server) handleAuthorizationCodeRequest(w *Response, r *http.Request) *A
 		ret.RedirectUri = FirstUri(ret.Client.GetRedirectURI(), s.Config.RedirectUriSeparator)
 	}
 	if err = ValidateUriList(ret.Client.GetRedirectURI(), ret.RedirectUri, s.Config.RedirectUriSeparator); err != nil {
-		w.SetError(E_INVALID_REQUEST, "")
+		w.SetError(E_INVALID_REQUEST, err.Error())
 		w.InternalError = err
 		return nil
 	}
 	if ret.AuthorizeData.RedirectUri != ret.RedirectUri {
 		w.SetError(E_INVALID_REQUEST, "")
-		w.InternalError = errors.New("Redirect uri is different")
+		w.InternalError = errors.New("redirect uri is different")
 		return nil
 	}
 
@@ -339,7 +339,7 @@ func (s *Server) handleRefreshTokenRequest(w *Response, r *http.Request) *Access
 
 	// "refresh_token" is required
 	if ret.Code == "" {
-		w.SetError(E_INVALID_GRANT, "")
+		w.SetError(E_INVALID_GRANT, "refresh_token is empty")
 		return nil
 	}
 
@@ -352,26 +352,26 @@ func (s *Server) handleRefreshTokenRequest(w *Response, r *http.Request) *Access
 	var err error
 	ret.AccessData, err = w.Storage.LoadRefresh(ret.Code)
 	if err != nil {
-		w.SetError(E_SERVER_ERROR, "")
+		w.SetError(E_SERVER_ERROR, "failed to load refresh_token")
 		w.InternalError = err
 		return nil
 	}
 	if ret.AccessData == nil {
-		w.SetError(E_INVALID_GRANT, "")
+		w.SetError(E_INVALID_GRANT, "refresh_toke is invalid")
 		return nil
 	}
 	if ret.AccessData.Client == nil {
-		w.SetError(E_INVALID_GRANT, "")
+		w.SetError(E_INVALID_GRANT, "accessData client is empty")
 		return nil
 	}
 	if ret.AccessData.Client.GetRedirectURI() == "" {
-		w.SetError(E_INVALID_GRANT, "")
+		w.SetError(E_INVALID_GRANT, "accessData client redirect uri is empty")
 		return nil
 	}
 
 	// client must be the same as the previous token
 	if !CheckClientID(ret.AccessData.Client, ret.Client.GetID()) {
-		w.SetError(E_INVALID_GRANT, "")
+		w.SetError(E_INVALID_GRANT, "client id must be the same from previous token")
 		w.InternalError = errors.New("client id must be the same from previous token")
 		return nil
 
@@ -385,7 +385,7 @@ func (s *Server) handleRefreshTokenRequest(w *Response, r *http.Request) *Access
 	}
 
 	if extraScopes(ret.AccessData.Scope, ret.Scope) {
-		w.SetError(E_ACCESS_DENIED, "")
+		w.SetError(E_ACCESS_DENIED, "the requested scope must not include any scope not originally granted by the resource owner")
 		w.InternalError = errors.New("the requested scope must not include any scope not originally granted by the resource owner")
 		return nil
 	}
@@ -414,7 +414,7 @@ func (s *Server) handlePasswordRequest(w *Response, r *http.Request) *AccessRequ
 
 	// "username" and "password" is required
 	if ret.Username == "" || ret.Password == "" {
-		w.SetError(E_INVALID_GRANT, "")
+		w.SetError(E_INVALID_GRANT, "username and password is required")
 		return nil
 	}
 
@@ -500,7 +500,7 @@ func (s *Server) handlePlatformRequest(w *Response, r *http.Request) *AccessRequ
 	if auth == nil {
 		clientID = r.Form.Get("client_id")
 		if clientID == "" {
-			w.SetError(E_UNAUTHORIZED_CLIENT, "")
+			w.SetError(E_UNAUTHORIZED_CLIENT, "client_id is empty in form body")
 			return nil
 		}
 		client = getClientWithoutSecret(clientID, w.Storage, w)
@@ -539,6 +539,10 @@ func (s *Server) handleClientCredentialsRequest(w *Response, r *http.Request) *A
 	// get client authentication
 	auth := GetClientAuth(w, r, s.Config.AllowClientSecretInParams)
 	if auth == nil {
+		return nil
+	}
+	if len(auth.Password) == 0 {
+		w.SetError(E_INVALID_GRANT, "client secret is empty")
 		return nil
 	}
 
@@ -684,22 +688,22 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 func getClient(auth *BasicAuth, storage Storage, w *Response) Client {
 	client, err := storage.GetClient(auth.Username)
 	if err != nil && err != ErrNotFound {
-		w.SetError(E_SERVER_ERROR, "")
+		w.SetError(E_SERVER_ERROR, "failed to get oauth client")
 		w.InternalError = err
 		return nil
 	}
 	if client == nil {
-		w.SetError(E_INVALID_CLIENT, "")
+		w.SetError(E_INVALID_CLIENT, "oauth client is empty")
 		return nil
 	}
 
 	if !CheckClientSecret(client, auth.Password) {
-		w.SetError(E_INVALID_CLIENT, "")
+		w.SetError(E_INVALID_CLIENT, "oauth client secret not match")
 		return nil
 	}
 
 	if client.GetRedirectURI() == "" {
-		w.SetError(E_INVALID_CLIENT, "")
+		w.SetError(E_INVALID_CLIENT, "oauth client redirect uri is empty")
 		return nil
 	}
 	return client
@@ -710,17 +714,17 @@ func getClient(auth *BasicAuth, storage Storage, w *Response) Client {
 func getClientWithoutSecret(clientId string, storage Storage, w *Response) Client {
 	client, err := storage.GetClient(clientId)
 	if err != nil {
-		w.SetError(E_SERVER_ERROR, "")
+		w.SetError(E_SERVER_ERROR, "failed to get oauth client")
 		w.InternalError = err
 		return nil
 	}
 	if client == nil {
-		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		w.SetError(E_UNAUTHORIZED_CLIENT, "oauth client not found")
 		return nil
 	}
 
 	if client.GetRedirectURI() == "" {
-		w.SetError(E_UNAUTHORIZED_CLIENT, "")
+		w.SetError(E_UNAUTHORIZED_CLIENT, "oauth client redirect uri is empty")
 		return nil
 	}
 	return client

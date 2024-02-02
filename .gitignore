@@ -1,2 +1,10 @@
 *.exe
 /src
+
+go.mod
+go.sum
+
+vendor/
+
+.DS_Store
+.idea/

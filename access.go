@@ -541,10 +541,6 @@ func (s *Server) handleClientCredentialsRequest(w *Response, r *http.Request) *A
 	if auth == nil {
 		return nil
 	}
-	if len(auth.Password) == 0 {
-		w.SetError(E_INVALID_GRANT, "client secret is empty")
-		return nil
-	}
 
 	// generate access token
 	ret := &AccessRequest{

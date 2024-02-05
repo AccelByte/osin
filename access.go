@@ -13,15 +13,16 @@ import (
 type AccessRequestType string
 
 const (
-	AUTHORIZATION_CODE AccessRequestType = "authorization_code"
-	REFRESH_TOKEN      AccessRequestType = "refresh_token"
-	PASSWORD           AccessRequestType = "password"
-	CLIENT_CREDENTIALS AccessRequestType = "client_credentials"
-	ASSERTION          AccessRequestType = "assertion"
-	ANONYMOUS          AccessRequestType = "anonymous"
-	DEVICE             AccessRequestType = "device"
-	PLATFORM           AccessRequestType = "platform"
-	IMPLICIT           AccessRequestType = "__implicit"
+	AUTHORIZATION_CODE        AccessRequestType = "authorization_code"
+	REFRESH_TOKEN             AccessRequestType = "refresh_token"
+	PASSWORD                  AccessRequestType = "password"
+	CLIENT_CREDENTIALS        AccessRequestType = "client_credentials"
+	ASSERTION                 AccessRequestType = "assertion"
+	ANONYMOUS                 AccessRequestType = "anonymous"
+	DEVICE                    AccessRequestType = "device"
+	PLATFORM                  AccessRequestType = "platform"
+	IMPLICIT                  AccessRequestType = "__implicit"
+	EXTEND_LOGIN_QUEUE_TICKET AccessRequestType = "urn:ietf:params:oauth:grant-type:login_queue_ticket"
 )
 
 // AccessRequest is a request for access tokens
@@ -163,6 +164,9 @@ func (s *Server) HandleAccessRequest(w *Response, r *http.Request) *AccessReques
 			return s.handleDeviceRequest(w, r)
 		case PLATFORM:
 			return s.handlePlatformRequest(w, r)
+		case EXTEND_LOGIN_QUEUE_TICKET:
+			return s.handleLoginQueueTicketRequest(w, r)
+
 		}
 	}
 
@@ -559,6 +563,55 @@ func (s *Server) handleClientCredentialsRequest(w *Response, r *http.Request) *A
 
 	// set redirect uri
 	ret.RedirectUri = FirstUri(ret.Client.GetRedirectURI(), s.Config.RedirectUriSeparator)
+
+	return ret
+}
+
+func (s *Server) handleLoginQueueTicketRequest(w *Response, r *http.Request) *AccessRequest {
+	auth, err := CheckBasicAuth(r)
+	if err != nil {
+		w.SetError(E_SERVER_ERROR, err.Error())
+		w.InternalError = err
+		return nil
+	}
+
+	var clientID string
+	var client Client
+	if auth == nil {
+		clientID = r.Form.Get("client_id")
+		if clientID == "" {
+			w.SetError(E_UNAUTHORIZED_CLIENT, "missing client_id in form body")
+			return nil
+		}
+		client = getClientWithoutSecret(clientID, w.Storage, w)
+	} else {
+		// get client authentication
+		auth := GetClientAuth(w, r, s.Config.AllowClientSecretInParams)
+		if auth == nil {
+			return nil
+		}
+		client = getClient(auth, w.Storage, w)
+	}
+
+	// generate access token
+	ret := &AccessRequest{
+		Type:            EXTEND_LOGIN_QUEUE_TICKET,
+		Code:            r.Form.Get("login_queue_ticket"),
+		CodeVerifier:    r.Form.Get("code_verifier"),
+		GenerateRefresh: true,
+		Expiration:      s.Config.AccessExpiration,
+	}
+
+	// login queue ticket is required
+	if ret.Code == "" {
+		w.SetError(E_INVALID_GRANT, "login queue ticket is empty")
+		return nil
+	}
+
+	// must have a valid client
+	if ret.Client = client; ret.Client == nil {
+		return nil
+	}
 
 	return ret
 }

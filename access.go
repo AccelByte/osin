@@ -84,6 +84,9 @@ type AccessData struct {
 	// Refresh Token. Can be blank
 	RefreshToken string
 
+	// ID Token. Can be blank
+	IDToken string
+
 	// Token expiration in seconds
 	ExpiresIn int32
 
@@ -121,6 +124,7 @@ func (d *AccessData) ExpireAt() time.Time {
 // AccessTokenGen generates access tokens
 type AccessTokenGen interface {
 	GenerateAccessToken(data *AccessData, generaterefresh bool) (accesstoken string, refreshtoken string, err error)
+	GenerateToken(data *AccessData, generaterefresh bool) (accesstoken, refreshtoken, idToken string, err error)
 }
 
 // HandleAccessRequest is the http.HandlerFunc for handling access token requests
@@ -680,7 +684,7 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 			}
 
 			// generate access token
-			ret.AccessToken, ret.RefreshToken, err = s.AccessTokenGen.GenerateAccessToken(ret, ar.GenerateRefresh)
+			ret.AccessToken, ret.RefreshToken, ret.IDToken, err = s.AccessTokenGen.GenerateToken(ret, ar.GenerateRefresh)
 			if err != nil {
 				w.SetError(E_SERVER_ERROR, "")
 				w.InternalError = err
@@ -718,6 +722,10 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 				AddTokenInCookie(w, ret.RefreshToken, "refresh_token", int64(int32(time.Now().Unix())+ret.RefreshExpireIn), s.Config.CookieDomain)
 			}
 		}
+		if ret.IDToken != "" {
+			w.Output["id_token"] = ret.IDToken
+		}
+
 		if ret.Scope != "" {
 			w.Output["scope"] = ret.Scope
 		}

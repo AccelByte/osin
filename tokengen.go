@@ -31,3 +31,16 @@ func (a *AccessTokenGenDefault) GenerateAccessToken(data *AccessData, generatere
 	}
 	return
 }
+
+// GenerateToken generates base64-encoded UUID access and refresh tokens & empty idToken
+func (a *AccessTokenGenDefault) GenerateToken(data *AccessData, generaterefresh bool) (accesstoken string, refreshtoken string, idToken string, err error) {
+	token := uuid.NewRandom()
+	accesstoken = base64.RawURLEncoding.EncodeToString([]byte(token))
+	idToken = ""
+
+	if generaterefresh {
+		rtoken := uuid.NewRandom()
+		refreshtoken = base64.RawURLEncoding.EncodeToString([]byte(rtoken))
+	}
+	return
+}

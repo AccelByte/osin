@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -737,12 +738,12 @@ func (s *Server) FinishAccessRequest(w *Response, r *http.Request, ar *AccessReq
 func getClient(auth *BasicAuth, storage Storage, w *Response) Client {
 	client, err := storage.GetClient(auth.Username)
 	if err != nil && err != ErrNotFound {
-		w.SetError(E_SERVER_ERROR, "failed to get oauth client")
+		w.SetError(E_SERVER_ERROR, fmt.Sprintf("failed to get oauth client [%s]", auth.Username))
 		w.InternalError = err
 		return nil
 	}
 	if client == nil {
-		w.SetError(E_INVALID_CLIENT, "oauth client is empty")
+		w.SetError(E_INVALID_CLIENT, fmt.Sprintf("oauth client [%s] not found", auth.Username))
 		return nil
 	}
 
@@ -762,13 +763,13 @@ func getClient(auth *BasicAuth, storage Storage, w *Response) Client {
 // storage. Sets an error on the response if auth fails or a server error occurs.
 func getClientWithoutSecret(clientId string, storage Storage, w *Response) Client {
 	client, err := storage.GetClient(clientId)
-	if err != nil {
-		w.SetError(E_SERVER_ERROR, "failed to get oauth client")
+	if err != nil && err != ErrNotFound {
+		w.SetError(E_SERVER_ERROR, fmt.Sprintf("failed to get oauth client [%s]", clientId))
 		w.InternalError = err
 		return nil
 	}
 	if client == nil {
-		w.SetError(E_UNAUTHORIZED_CLIENT, "oauth client not found")
+		w.SetError(E_UNAUTHORIZED_CLIENT, fmt.Sprintf("oauth client [%s] not found", clientId))
 		return nil
 	}
 
